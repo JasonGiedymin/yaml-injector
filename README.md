@@ -46,6 +46,4 @@ yaml-injector is under the Apache 2.0 license. See the [LICENSE](LICENSE) file f
 
 ## Todo
 
-- [x] stdin/out/err
-- [ ] key parser
-- [ ] *nix data pipe in
+See [TODO](TODO) file for details.
