@@ -29,18 +29,62 @@ import (
     // "text/template"
     // "time"
 
+    "code.google.com/p/go.crypto/ssh/terminal"
     "github.com/codegangsta/cli"
     "gopkg.in/yaml.v2"
 )
 
 const (
-    APPNAME = "Amuxbit Yaml Injector"
-    VERSION = "1.0.0.0"
+    APPNAME = "Yaml Injector"
+    VERSION = "0.1.0"
 )
 
 var (
     debug = false
 )
+
+type MapData map[interface{}]interface{}
+
+type DataReader interface {
+    String() string
+    Data() []byte
+    Map() *MapData
+}
+
+type BaseData struct {
+    data []byte
+}
+
+func (b BaseData) Data() []byte {
+    return b.data
+}
+
+type JsonData struct {
+    BaseData
+}
+
+type YamlData struct {
+    BaseData
+}
+
+func (y YamlData) String() string {
+    return string(y.data)
+}
+
+func (y YamlData) Map() *MapData {
+    var data_yaml = make(MapData)
+    err := yaml.Unmarshal(y.data, &data_yaml)
+    if err != nil {
+        err_msg := fmt.Sprintf("Could not read data yaml, error: %s", err)
+        log.Fatal(err_msg)
+    }
+
+    return &data_yaml
+}
+
+func NewYamlData(data []byte) *YamlData {
+    return &YamlData{BaseData{data: data}}
+}
 
 func readYaml(filename string) []byte {
     data, err := ioutil.ReadFile(filename)
@@ -63,52 +107,28 @@ func writeYaml(yaml_data map[interface{}]interface{}) string {
     return yaml_string
 }
 
-func inject(yaml_input []byte, data []byte, yaml_key string, data_key string) string {
-    var parsed_yaml = make(map[interface{}]interface{})
-    var data_yaml = make(map[interface{}]interface{})
+func inject(yaml_input DataReader, data DataReader, yaml_key string, data_key string) string {
 
     if debug {
-        log.Printf("Input yaml: %s", string(yaml_input))
-        log.Printf("Data: %s", string(data))
+        log.Printf("Input yaml: %s", yaml_input)
+        log.Printf("Data: %s", data)
         log.Printf("Key to replace: %s", yaml_key)
         log.Printf("Data key to use: %s", data_key)
     }
 
-    err := yaml.Unmarshal(yaml_input, &parsed_yaml)
-    if err != nil {
-        err_msg := fmt.Sprintf("Could not read yaml input, error: %s", err)
-        log.Fatal(err_msg)
-    }
-
-    data_err := yaml.Unmarshal(data, &data_yaml)
-    if err != nil {
-        err_msg := fmt.Sprintf("Could not read data yaml, error: %s", err)
-        log.Fatal(err_msg)
-    }
+    parsed_yaml := *yaml_input.Map()
+    data_yaml := *data.Map()
 
     if parsed_yaml[yaml_key] != nil && data_yaml[data_key] != nil {
         if debug {
             log.Printf("yaml node: %s\n", parsed_yaml[yaml_key])
             log.Printf("data node: %s\n", data_yaml[data_key])
         }
-        // var t string
-        // t = "b"
-        // log.Printf(parsed_yaml)
         parsed_yaml[yaml_key] = data_yaml[data_key]
-    } else if err != nil {
-        err_msg := fmt.Sprintf("Key: [%s] not found in yaml input.", yaml_key)
-        log.Fatal(err_msg)
-    } else if data_err != nil {
-        err_msg := fmt.Sprintf("Key: [%s] not found in data yaml input.", data_key)
-        log.Fatal(err_msg)
-    } else {
-        if parsed_yaml[yaml_key] == nil {
-            log.Fatalf("Could not find input key: %s", yaml_key)
-        }
-
-        if data_yaml[data_key] == nil {
-            log.Fatalf("Could not find data key: %s", data_key)
-        }
+    } else if parsed_yaml[yaml_key] == nil {
+        log.Fatalf("Could not find input key: %s", yaml_key)
+    } else if data_yaml[data_key] == nil {
+        log.Fatalf("Could not find data key: %s", data_key)
     }
 
     return writeYaml(parsed_yaml)
@@ -153,11 +173,18 @@ func main() {
                             debug = true
                         }
 
+                        if !terminal.IsTerminal(0) {
+                            input, _ := ioutil.ReadAll(os.Stdin)
+                            fmt.Print(string(input))
+                        } else {
+                            fmt.Println("no piped data")
+                        }
+
                         yaml_input := readYaml(c.GlobalString("file"))
                         data := readYaml(c.GlobalString("using"))
                         data_key := c.GlobalString("key")
                         yaml_key := c.Args().First()
-                        inject(yaml_input, data, yaml_key, data_key)
+                        inject(NewYamlData(yaml_input), NewYamlData(data), yaml_key, data_key)
                     },
                 },
             },
