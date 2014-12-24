@@ -19,6 +19,18 @@
 - [x] Add gitignore
 - [x] Add TODO file
 
-## v0.1.0
+## v0.2.0
+
+- [x] Update docs
+- [x] Modify MapData to map[string]interface[] from map[interface{}]interface to
+   x  make using JSON easier
+- [x] Add JsonData methods and Map() implementation
+- [x] Rename inject param from `yaml_input` to `dest_file` to make it obvious
+      the param is the destination data file.
+- [x] Use JsonData when stdin is passed in to the command
+- [ ] Add JSON stdin tests
+- [ ] Add dot notation parser
+
+## v0.5.0
 
 - [ ] tag and build binary
