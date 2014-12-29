@@ -193,5 +193,12 @@ func TestGetKey(t *testing.T) {
             //     t.Logf("\nExpected: \n[%v](%s), \ngot: \n[%v](%s)", asset.expected, reflect.TypeOf(asset.expected), result, reflect.TypeOf(result))
             // }
         }
+
+        pointers := map_data.ToMapDataPointers()
+        if len(pointers) != 4 {
+            t.Errorf("Expected four entry map of pointers, got: %v", pointers)
+            pointers.Print()
+        }
+
     }
 }

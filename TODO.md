@@ -38,6 +38,7 @@
   - [x] Add dot notation parser
   - [x] GetKey func to get value from either yaml or json map
   - [x] Add tests for GetKey
+  - [x] Add MapDataPointers to create a map of interface pointers
   - [ ] Do map value replacement using GetKey or code therein
 
 ## v0.5.0

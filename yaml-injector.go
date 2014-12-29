@@ -50,12 +50,12 @@ package main
 import (
     // "bytes"
     // "errors"
-    // "reflect"
     "encoding/json"
     "fmt"
     "io/ioutil"
     "log"
     "os"
+    "reflect"
 
     "code.google.com/p/go.crypto/ssh/terminal"
     "github.com/codegangsta/cli"
@@ -74,6 +74,32 @@ var (
 
 type MapData map[interface{}]interface{}
 type MapDataInterim map[string]interface{}
+type MapDataPointers map[*interface{}]*interface{}
+
+func (mp *MapDataPointers) Print() {
+    log.Println("--- Map Listing ---")
+    for key := range *mp {
+        log.Printf("[%v]:(%v)", *key, *(*mp)[key])
+    }
+    log.Println("-------------------")
+}
+
+func (m *MapData) ToMapDataPointers() MapDataPointers {
+    var converted_map = make(MapDataPointers)
+
+    for key := range *m {
+        new_key := key     // key reference, key is in-place
+        value := (*m)[key] // value reference
+
+        if debug {
+            log.Printf(">> entry: %v (%v) [%v], value: %v (%v)", new_key, &new_key, reflect.TypeOf(new_key), value, &value)
+        }
+
+        converted_map[&new_key] = &value
+    }
+
+    return converted_map
+}
 
 type MapDataTransition struct {
     data MapDataInterim
@@ -190,10 +216,12 @@ func GetKey(tokens []string, data interface{}) (interface{}, bool) {
         switch data.(type) {
         case map[string]interface{}:
             value := data.(map[string]interface{})[token]
-            // fmt.Printf("\n==> %s\n", value)
+            // data.(map[string]interface{})[token] = "crap"
+            // fmt.Printf("\n**> %v\n", data)
             return GetKey(tokens[1:], value)
         default:
-            return GetKey(tokens[1:], data.(MapData)[token])
+            new_data := data.(MapData)[token]
+            return GetKey(tokens[1:], new_data)
         }
     }
 
@@ -205,7 +233,7 @@ func GetKey(tokens []string, data interface{}) (interface{}, bool) {
         if debug {
             fmt.Printf(" -> [%v]\n", data)
         }
-
+        // data = "crap"
         return data, true
     }
 
