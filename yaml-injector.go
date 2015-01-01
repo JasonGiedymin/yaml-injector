@@ -1,33 +1,61 @@
 // yaml-injector.go
 //
 // Usage:
-//   yaml-injector
-//      --file <sample.yaml>
-//        The file you wish to inject yaml into.
 //
-//      --data <data.yaml>
-//        The yaml datafile with values you wish to use.
+// yaml-injector
 //
-//      --key some.node OR node
-//        This is the key you wish to replace or inject into.
+// COMMANDS:
+//    inject, i  Runs the yaml injector replace command
+//      [into]   optional data key to inject into
+//    help, h  Shows a list of commands or help for one command
 //
-//      run [-key]
-//      The run command takes in an optional data key you wish to pluck from
-//      the data file. If ommitted then the entire file will be used.
+// GLOBAL OPTIONS:
+//    --file, -f     the file you wish to inject yaml into.
+//    --using, -u    the yaml datafile with values you wish to use.
+//    --key, -k      this is the key you wish to replace or inject into.
+//    --debug, -d    debug output.
+//    --test, -t     test run the command by printing the output to stdout
+//    --help, -h     show help
+//    --version, -v  print the version
+//
+// Stdin (JSON)
+// The command can accept stdin JSON. JSON does away with new lines
+// and can be read inline.
+//
+// Examples:
+//   - Data file usage:
+//     go run yaml-injector.go
+//       --debug --file test/input.yaml \
+//       --using test/data.yaml \
+//       --key "a" \
+//       inject into "a"
+//
+//   - Data file usage but using test run to see expected output on stdout:
+//     go run yaml-injector.go
+//       --test
+//       --debug --file test/input.yaml \
+//       --using test/data.yaml \
+//       --key "a" \
+//       inject into "a"
+//
+//   - Stdin JSON usage:
+//     echo '{"a":1}' | go run yaml-injector.go --debug \
+//       --file test/input.yaml \
+//       --using test/data.yaml \
+//       --key "a" inject into "a"
 //
 
 package main
 
 import (
     // "bytes"
+    // "errors"
+    "encoding/json"
     "fmt"
     "io/ioutil"
-    // "errors"
     "log"
-    // "net/http"
     "os"
-    // "text/template"
-    // "time"
+    "reflect"
 
     "code.google.com/p/go.crypto/ssh/terminal"
     "github.com/codegangsta/cli"
@@ -36,14 +64,64 @@ import (
 
 const (
     APPNAME = "Yaml Injector"
-    VERSION = "0.1.0"
+    VERSION = "0.2.0"
 )
 
 var (
-    debug = false
+    debug = true
+    test  = false
 )
 
 type MapData map[interface{}]interface{}
+type MapDataInterim map[string]interface{}
+type MapDataPointers map[*interface{}]*interface{}
+
+func (mp *MapDataPointers) Print() {
+    log.Println("--- Map Listing ---")
+    for key := range *mp {
+        log.Printf("[%v]:(%v)", *key, *(*mp)[key])
+    }
+    log.Println("-------------------")
+}
+
+func (m *MapData) ToMapDataPointers() MapDataPointers {
+    var converted_map = make(MapDataPointers)
+
+    for key := range *m {
+        new_key := key     // key reference, key is in-place
+        value := (*m)[key] // value reference
+
+        if debug {
+            log.Printf(">> entry: %v (%v) [%v], value: %v (%v)", new_key, &new_key, reflect.TypeOf(new_key), value, &value)
+        }
+
+        converted_map[&new_key] = &value
+    }
+
+    return converted_map
+}
+
+type MapDataTransition struct {
+    data MapDataInterim
+}
+
+func (m *MapDataTransition) ToMapData() *MapData {
+    var converted_map = make(MapData)
+    for key := range m.data {
+        conv_key := interface{}(key)
+        converted_map[conv_key] = m.data[key]
+    }
+
+    return &converted_map
+}
+
+func NewMapDataTransition(data MapDataInterim) *MapDataTransition {
+    return &MapDataTransition{data}
+}
+
+func ToMapData(data MapDataInterim) *MapData {
+    return NewMapDataTransition(data).ToMapData()
+}
 
 type DataReader interface {
     String() string
@@ -61,6 +139,29 @@ func (b BaseData) Data() []byte {
 
 type JsonData struct {
     BaseData
+}
+
+func (j JsonData) String() string {
+    return string(j.data)
+}
+
+func (j JsonData) Map() *MapData {
+    if debug {
+        log.Printf("Mapping this Json Data:\n%s\n", j.data)
+    }
+
+    var data_json = make(MapDataInterim)
+    err := json.Unmarshal(j.data, &data_json)
+    if err != nil {
+        err_msg := fmt.Sprintf("Could not read data json, error: %s", err)
+        log.Fatal(err_msg)
+    }
+
+    return NewMapDataTransition(data_json).ToMapData()
+}
+
+func NewJsonData(data []byte) *JsonData {
+    return &JsonData{BaseData{data: data}}
 }
 
 type YamlData struct {
@@ -86,6 +187,59 @@ func NewYamlData(data []byte) *YamlData {
     return &YamlData{BaseData{data: data}}
 }
 
+func find(tokens []string) string {
+    fmt.Printf(".")
+
+    switch len(tokens) {
+    case 0:
+        return ""
+    case 1:
+        return tokens[0]
+    default:
+        return find(tokens[1:])
+    }
+}
+
+// Keep it really simple by using dot notation.
+// Retain everything else as it will just fail anyway.
+func GetKey(tokens []string, data interface{}) (interface{}, bool) {
+    // fmt.Printf("\n>>%v, %v\n\n", key, reflect.TypeOf(key))
+    // fmt.Printf("\n>>%v, %v\n\n", data, reflect.TypeOf(data))
+    // fmt.Printf("\n>>%v, %v\n\n", value, reflect.TypeOf(value))
+
+    var next = func(format string) (interface{}, bool) {
+        token := tokens[0]
+        if debug {
+            fmt.Printf(format, token)
+        }
+
+        switch data.(type) {
+        case map[string]interface{}:
+            value := data.(map[string]interface{})[token]
+            // data.(map[string]interface{})[token] = "crap"
+            // fmt.Printf("\n**> %v\n", data)
+            return GetKey(tokens[1:], value)
+        default:
+            new_data := data.(MapData)[token]
+            return GetKey(tokens[1:], new_data)
+        }
+    }
+
+    if len(tokens) > 1 {
+        return next("(%v).")
+    } else if len(tokens) == 1 {
+        return next("(%v)")
+    } else {
+        if debug {
+            fmt.Printf(" -> [%v]\n", data)
+        }
+        // data = "crap"
+        return data, true
+    }
+
+    return nil, false
+}
+
 func readYaml(filename string) []byte {
     data, err := ioutil.ReadFile(filename)
     if err != nil {
@@ -95,7 +249,7 @@ func readYaml(filename string) []byte {
     return data
 }
 
-func writeYaml(yaml_data map[interface{}]interface{}) string {
+func writeYaml(yaml_data MapData) string {
     modified_yaml, err := yaml.Marshal(yaml_data)
     if err != nil {
         log.Fatalf("error: %v", err)
@@ -103,31 +257,33 @@ func writeYaml(yaml_data map[interface{}]interface{}) string {
 
     yaml_string := string(modified_yaml)
 
-    fmt.Printf(yaml_string)
+    if test {
+        fmt.Printf("%s\n", yaml_string)
+    }
     return yaml_string
 }
 
-func inject(yaml_input DataReader, data DataReader, yaml_key string, data_key string) string {
+func inject(dest_file DataReader, data DataReader, yaml_key string, data_key string) string {
 
     if debug {
-        log.Printf("Input yaml: %s", yaml_input)
+        log.Printf("Dest yaml file: %s", dest_file)
         log.Printf("Data: %s", data)
         log.Printf("Key to replace: %s", yaml_key)
         log.Printf("Data key to use: %s", data_key)
     }
 
-    parsed_yaml := *yaml_input.Map()
+    parsed_yaml := *dest_file.Map()
     data_yaml := *data.Map()
 
-    if parsed_yaml[yaml_key] != nil && data_yaml[data_key] != nil {
+    if parsed_yaml[yaml_key] != "" && data_yaml[data_key] != "" {
         if debug {
             log.Printf("yaml node: %s\n", parsed_yaml[yaml_key])
             log.Printf("data node: %s\n", data_yaml[data_key])
         }
         parsed_yaml[yaml_key] = data_yaml[data_key]
-    } else if parsed_yaml[yaml_key] == nil {
+    } else if parsed_yaml[yaml_key] == "" {
         log.Fatalf("Could not find input key: %s", yaml_key)
-    } else if data_yaml[data_key] == nil {
+    } else if data_yaml[data_key] == "" {
         log.Fatalf("Could not find data key: %s", data_key)
     }
 
@@ -139,23 +295,30 @@ func main() {
     app := cli.NewApp()
     app.Name = APPNAME
     app.Usage = "yaml injector"
+    app.Version = VERSION
 
     app.Flags = []cli.Flag{
         cli.StringFlag{
             Name:  "file, f",
-            Usage: "The file you wish to inject yaml into.",
+            Usage: "the file you wish to inject yaml into.",
         },
         cli.StringFlag{
             Name:  "using, u",
-            Usage: "The yaml datafile with values you wish to use.",
+            Usage: "the yaml datafile with values you wish to use.",
         },
         cli.StringFlag{
             Name:  "key, k",
-            Usage: "This is the key you wish to replace or inject into.",
+            Usage: "this is the key you wish to replace or inject into.",
         },
         cli.BoolFlag{
             Name:  "debug, d",
-            Usage: "Debug output.",
+            Usage: "debug output.",
+        },
+        cli.BoolFlag{
+            Name: "test, t",
+            Usage: "test run the command by printing the output " +
+                "to stdout, also useful for pipeing out data without " +
+                "having to write out to a file",
         },
     }
 
@@ -169,22 +332,30 @@ func main() {
                     Name:  "into",
                     Usage: "optional data key to inject into",
                     Action: func(c *cli.Context) {
+                        var data DataReader
+
                         if c.GlobalBool("debug") {
                             debug = true
                         }
 
-                        if !terminal.IsTerminal(0) {
-                            input, _ := ioutil.ReadAll(os.Stdin)
-                            fmt.Print(string(input))
-                        } else {
-                            fmt.Println("no piped data")
+                        if c.GlobalBool("test") {
+                            test = true
                         }
 
-                        yaml_input := readYaml(c.GlobalString("file"))
-                        data := readYaml(c.GlobalString("using"))
+                        // If stdin presents data, accept it as JSON and
+                        // ignore any yaml data file flats.
+                        // Otherwise use the flags given by the user.
+                        if !terminal.IsTerminal(0) {
+                            input, _ := ioutil.ReadAll(os.Stdin)
+                            data = NewJsonData(input)
+                        } else {
+                            data = NewYamlData(readYaml(c.GlobalString("using")))
+                        }
+
+                        dest_file := NewYamlData(readYaml(c.GlobalString("file")))
                         data_key := c.GlobalString("key")
                         yaml_key := c.Args().First()
-                        inject(NewYamlData(yaml_input), NewYamlData(data), yaml_key, data_key)
+                        inject(dest_file, data, yaml_key, data_key)
                     },
                 },
             },
