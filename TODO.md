@@ -1,6 +1,6 @@
 # yaml-injector TODO
 
-## v0.1.0a
+## v0.1.0a - Initial
 
   - [x] Add License file
   - [x] Add Notice file
@@ -20,7 +20,7 @@
   - [x] Add TODO file
 
 
-## v0.2.0
+## v0.2.0 - JSON Stdin
 
   - [x] Update docs
   - [x] Modify MapData to map[string]interface[] from map[interface{}]interface to
@@ -36,11 +36,27 @@
   - [x] Add test flag to output result to stdout
   - [x] Update docs and usage
   - [x] Add dot notation parser
-  - [x] GetKey func to get value from either yaml or json map
-  - [x] Add tests for GetKey
+  - [x] GetValue func to get value from either yaml or json map
+  - [x] Add tests for GetValue
+  - [x] Break out code into files, single script is getting out of hand
+  - [x] Add Debug/Test methods
+  - [x] Add `Selector` struct and methods to use for map selection
+  - [x] Add Map functions acc func
+    - [x] Add `Map()` immutable copy variant
+    - [x] Add `MapIn()`, an in-place map
+    - [x] Add `MapInSelect()`, an in-place map modifier by selector
   - [x] Add MapDataPointers to create a map of interface pointers
-  - [ ] Do map value replacement using GetKey or code therein
+  - [x] Add benchmark for MapInPlace
+  - [x] Add benchmark for GetValue
+  - [x] Add Makefile
+  - [x] Update Readme
+  - [x] Update `.gitignore` with potential target output when file write is
+        complete
+  - [x] Wire in `Selector` and in-place Mapper
+  - [ ] Write out to destination file
 
-## v0.5.0
+## v0.3.0
+
+## v0.4.0
 
   - [ ] tag and build binary

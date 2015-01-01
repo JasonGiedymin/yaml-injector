@@ -1,6 +1,9 @@
 package main
 
 import (
+    "./lib"
+
+    // "fmt"
     "reflect"
     "strings"
     "testing"
@@ -64,8 +67,7 @@ var test_assets = []struct {
         TEST_DATA,
         "a",
         "new_a",
-        `
-a: Easy2!
+        `a: Easy2!
 b:
   c: 2
   d:
@@ -144,14 +146,12 @@ var test_assets_parser_json = []struct {
 
 func TestYamlInject(t *testing.T) {
     for _, test_assets := range test_assets {
-        // t.Logf("\niteration: %d \n data: %s", i, test_assets)
-
         if result := inject(
-            NewYamlData([]byte(test_assets.yaml)),
-            NewYamlData([]byte(test_assets.data)),
+            lib.NewYamlData([]byte(test_assets.yaml)),
+            lib.NewYamlData([]byte(test_assets.data)),
             test_assets.yaml_key,
-            test_assets.data_key); result != strings.TrimLeft(test_assets.expected, "\n") {
-            t.Errorf("\nExpected: \n[%s], \ngot: \n[%s]", test_assets.expected, result)
+            test_assets.data_key); strings.TrimSpace(result) != strings.TrimSpace(test_assets.expected) {
+            t.Errorf("\nExpected: \n[%s], \ngot: \n[%s]\n", strings.TrimSpace(test_assets.expected), strings.TrimSpace(result))
         }   // else all is well
     }
 }
@@ -161,8 +161,8 @@ func TestJsonInject(t *testing.T) {
         // t.Logf("\niteration: %d \n data: %s", i, asset)
 
         if result := inject(
-            NewYamlData([]byte(asset.dest)),
-            NewJsonData([]byte(asset.data)),
+            lib.NewYamlData([]byte(asset.dest)),
+            lib.NewJsonData([]byte(asset.data)),
             asset.yaml_key,
             asset.data_key); result != strings.TrimLeft(asset.expected, "\n") {
             t.Errorf("\nExpected: \n[%s], \ngot: \n[%s]", asset.expected, result)
@@ -170,11 +170,11 @@ func TestJsonInject(t *testing.T) {
     }
 }
 
-func TestGetKey(t *testing.T) {
+func TestGetValue(t *testing.T) {
     // Parse basic dot notation on yaml
     for _, asset := range test_assets_parser_yaml {
-        map_data := *NewYamlData([]byte(asset.data)).Map()
-        if result, ok := GetKey(strings.Split(asset.key, "."), map_data); ok {
+        map_data := *lib.NewYamlData([]byte(asset.data)).ToMapData()
+        if result, ok := lib.GetValue(strings.Split(asset.key, "."), map_data); ok {
             if result != asset.expected {
                 t.Errorf("\nExpected: \n[%v], \ngot: \n[%v]", asset.expected, result)
                 t.Errorf("Map data >> %v", map_data)
@@ -184,8 +184,8 @@ func TestGetKey(t *testing.T) {
 
     // Parse basic dot notation on json
     for _, asset := range test_assets_parser_json {
-        map_data := *NewJsonData([]byte(asset.data)).Map()
-        if result, ok := GetKey(strings.Split(asset.key, "."), map_data); ok == true {
+        map_data := *lib.NewJsonData([]byte(asset.data)).ToMapData()
+        if result, ok := lib.GetValue(strings.Split(asset.key, "."), map_data); ok == true {
             if result != asset.expected {
                 t.Errorf("\nExpected: \n[%v](%s), \ngot: \n[%v](%s)", asset.expected, reflect.TypeOf(asset.expected), result, reflect.TypeOf(result))
                 t.Errorf("Map data >> %v", map_data)
@@ -197,8 +197,10 @@ func TestGetKey(t *testing.T) {
         pointers := map_data.ToMapDataPointers()
         if len(pointers) != 4 {
             t.Errorf("Expected four entry map of pointers, got: %v", pointers)
-            pointers.Print()
         }
 
+        if DEBUG {
+            pointers.Print()
+        }
     }
 }

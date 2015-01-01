@@ -19,11 +19,10 @@
 //    --version, -v  print the version
 //
 // Stdin (JSON)
-// The command can accept stdin JSON. JSON can be easily read inline and is
-// the remote service/api response format of choice. In contrast, YAML is the
-// written and recorded format of choice.
+// The command can accept stdin JSON. JSON does away with new lines
+// and can be read inline.
 //
-// Example usage: (may be out of date, see Makefile)
+// Examples:
 //   - Data file usage:
 //     go run yaml-injector.go
 //       --debug --file test/input.yaml \
@@ -84,74 +83,19 @@ func inject(dest_file lib.DataReader, data lib.DataReader, yaml_key string, data
     }
 
     parsed_yaml := *dest_file.ToMapData()
-    data_file := *data.ToMapData()
+    data_yaml := *data.ToMapData()
 
-    // First check that the designated key exists within the dest yaml file
-    if dest_value, ok := lib.GetMapValue(yaml_key, parsed_yaml); !ok {
-        log.Fatalf("Could not find any value for dest key: (%s)", yaml_key)
-    } else {
+    if parsed_yaml[yaml_key] != "" && data_yaml[data_key] != "" {
         if DEBUG {
-            log.Printf("Dest data value to replace: %v", dest_value)
+            log.Printf("yaml node: %s\n", parsed_yaml[yaml_key])
+            log.Printf("data node: %s\n", data_yaml[data_key])
         }
+        parsed_yaml[yaml_key] = data_yaml[data_key]
+    } else if parsed_yaml[yaml_key] == "" {
+        log.Fatalf("Could not find input key: %s", yaml_key)
+    } else if data_yaml[data_key] == "" {
+        log.Fatalf("Could not find data key: %s", data_key)
     }
-
-    // Check that the designated key exists within the data file
-    // This does multiple passes over the data (validation, then modifier).
-    if data_value, ok := lib.GetMapValue(data_key, data_file); !ok {
-        log.Fatalf("Could not find any value for data key: (%s)", data_key)
-    } else {
-        if DEBUG {
-            log.Printf("Data value to use in inject/replacement: %v", data_value)
-        }
-
-        run := func() {
-            // Selector to find the value to replace
-            selector := lib.NewSelector(yaml_key)
-
-            // Function to replace the value
-            modifier := func(in interface{}) interface{} {
-                return data_value
-            }
-
-            lib.MapInSelect(&selector, parsed_yaml, modifier)
-        }
-
-        // At this point we can modify the map
-        run()
-    }
-
-    // Single pass dest replacement with validation via selector
-    // if data_value, ok := lib.GetMapValue(data_key, data_file); !ok {
-    //     log.Fatalf("Could not find any value for data key: (%s)", data_key)
-    // } else {
-    //     if DEBUG {
-    //         log.Printf("Data value to use in inject/replacement: %v", data_value)
-    //     }
-
-    //     run := func() {
-    //         // Selector to find the value to replace
-    //         selector := lib.NewSelector(yaml_key)
-
-    //         // Function to replace the value
-    //         modifier := func(in interface{}) interface{} {
-    //             return data_value
-    //         }
-
-    //         lib.MapInSelect(&selector, parsed_yaml, modifier)
-
-    //         if !selector.MatchFound() {
-    //             log.Fatalf("Could not find any value for dest key: (%s)", yaml_key)
-    //         } else {
-    //             if DEBUG {
-    //                 log.Printf("Dest data value to replace: %v", dest_value)
-    //             }
-    //         }
-
-    //     }
-
-    //     // At this point we can modify the map
-    //     run() // if ok
-    // }
 
     return lib.WriteYaml(parsed_yaml)
 }
@@ -214,16 +158,9 @@ func main() {
                         // ignore any yaml data file flats.
                         // Otherwise use the flags given by the user.
                         if !terminal.IsTerminal(0) {
-                            if DEBUG {
-                                log.Println("stdin detected")
-                            }
-
                             input, _ := ioutil.ReadAll(os.Stdin)
                             data = lib.NewJsonData(input)
                         } else {
-                            if DEBUG {
-                                log.Println("No stdin, proceeding with filemode")
-                            }
                             data = lib.NewYamlData(lib.ReadYaml(c.GlobalString("using")))
                         }
 
@@ -244,3 +181,17 @@ func main() {
 
     app.Run(os.Args)
 }
+---
+a: one
+b:
+  c: three
+  d:
+    - four
+    - five---
+a: one2
+b:
+  c: three2
+  d:
+    - four2
+    - five2cat {'a':1} run yaml-injector.go --debug --file test/input.yaml --using test/data.yaml --key a inject into a
+{'a':1} run yaml-injector.go --debug --file test/input.yaml --using test/data.yaml --key a inject into a
