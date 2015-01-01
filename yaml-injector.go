@@ -74,6 +74,14 @@ var (
     TEST  = false
 )
 
+func SetDebug(value bool) {
+    DEBUG = value
+}
+
+func SetTest(value bool) {
+    TEST = value
+}
+
 func inject(dest_file lib.DataReader, data lib.DataReader, yaml_key string, data_key string) string {
 
     if DEBUG {
@@ -121,6 +129,7 @@ func inject(dest_file lib.DataReader, data lib.DataReader, yaml_key string, data
     }
 
     // Single pass dest replacement with validation via selector
+    // Not much of a difference than above. GetMapValue adds little overhead.
     // if data_value, ok := lib.GetMapValue(data_key, data_file); !ok {
     //     log.Fatalf("Could not find any value for data key: (%s)", data_key)
     // } else {
@@ -137,7 +146,7 @@ func inject(dest_file lib.DataReader, data lib.DataReader, yaml_key string, data
     //             return data_value
     //         }
 
-    //         lib.MapInSelect(&selector, parsed_yaml, modifier)
+    //         _, dest_value := lib.MapInSelect(&selector, parsed_yaml, modifier)
 
     //         if !selector.MatchFound() {
     //             log.Fatalf("Could not find any value for dest key: (%s)", yaml_key)

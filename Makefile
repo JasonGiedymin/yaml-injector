@@ -25,7 +25,7 @@ tests:
 	$(GO_EXEC) test ./... -v
 
 benchmark:
-	$(GO_EXEC) test ./... -v -bench=. -benchmem -benchtime 1s
+	$(GO_EXEC) test ./... -bench=. -benchmem -benchtime 1s
 
 test-datafile:
 	@echo "$(OK_COLOR)==> Data file usage: $(NO_COLOR)"

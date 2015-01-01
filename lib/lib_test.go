@@ -167,7 +167,9 @@ func MapInPlaceSelector(run int, t *testing.T) {
 
     MapInSelect(&selector, input_map, fx)
 
-    t.Logf("Run: [%d], In-place result: %v\n", run, input_map)
+    if DEBUG {
+        t.Logf("Run: [%d], In-place result: %v\n", run, input_map)
+    }
 
     for _, test := range test_data {
 
@@ -197,11 +199,15 @@ func MapInPlaceSelector(run int, t *testing.T) {
 func TestMapInPlaceSelector(t *testing.T) {
     runs := 100
 
-    t.Logf("----------------- In-place testing runs [%d] -----------", runs)
+    if DEBUG {
+        t.Logf("----------------- In-place testing runs [%d] -----------", runs)
+    }
 
     for i := 0; i <= runs; i++ {
         MapInPlaceSelector(i, t)
     }
 
-    t.Logf("----------------- In-place testing runs complete -----------")
+    if DEBUG {
+        t.Logf("----------------- In-place testing runs complete -----------")
+    }
 }

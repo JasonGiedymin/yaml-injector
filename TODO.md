@@ -53,6 +53,11 @@
   - [x] Update `.gitignore` with potential target output when file write is
         complete
   - [x] Wire in `Selector` and in-place Mapper
+  - [x] Finish in-place variant, commenting it out
+  - [x] Add Debug and Test methods
+  - [x] Add Debug output `lib_test.go` file when running test loop runs
+  - [x] Add `inject()` benchmark
+  - [x] Modify `Makefile` to remove verbose output when benchmarking
   - [ ] Write out to destination file
 
 ## v0.3.0
