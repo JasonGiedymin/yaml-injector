@@ -19,10 +19,11 @@
 //    --version, -v  print the version
 //
 // Stdin (JSON)
-// The command can accept stdin JSON. JSON does away with new lines
-// and can be read inline.
+// The command can accept stdin JSON. JSON can be easily read inline and is
+// the remote service/api response format of choice. In contrast, YAML is the
+// written and recorded format of choice.
 //
-// Examples:
+// Example usage: (may be out of date, see Makefile)
 //   - Data file usage:
 //     go run yaml-injector.go
 //       --debug --file test/input.yaml \
@@ -39,7 +40,8 @@
 //       inject into "a"
 //
 //   - Stdin JSON usage:
-//     echo '{"a":1}' | go run yaml-injector.go --debug \
+//     echo '{"a":1}' | go run yaml-injector.go \
+//       --debug \
 //       --file test/input.yaml \
 //       --using test/data.yaml \
 //       --key "a" inject into "a"
@@ -50,16 +52,17 @@ package main
 import (
     // "bytes"
     // "errors"
-    "encoding/json"
-    "fmt"
+    // "encoding/json"
+    // "fmt"
+    // "reflect"
     "io/ioutil"
     "log"
     "os"
-    "reflect"
+
+    "./lib"
 
     "code.google.com/p/go.crypto/ssh/terminal"
     "github.com/codegangsta/cli"
-    "gopkg.in/yaml.v2"
 )
 
 const (
@@ -68,226 +71,99 @@ const (
 )
 
 var (
-    debug = true
-    test  = false
+    DEBUG = false
+    TEST  = false
 )
 
-type MapData map[interface{}]interface{}
-type MapDataInterim map[string]interface{}
-type MapDataPointers map[*interface{}]*interface{}
-
-func (mp *MapDataPointers) Print() {
-    log.Println("--- Map Listing ---")
-    for key := range *mp {
-        log.Printf("[%v]:(%v)", *key, *(*mp)[key])
-    }
-    log.Println("-------------------")
+func SetDebug(value bool) {
+    DEBUG = value
 }
 
-func (m *MapData) ToMapDataPointers() MapDataPointers {
-    var converted_map = make(MapDataPointers)
-
-    for key := range *m {
-        new_key := key     // key reference, key is in-place
-        value := (*m)[key] // value reference
-
-        if debug {
-            log.Printf(">> entry: %v (%v) [%v], value: %v (%v)", new_key, &new_key, reflect.TypeOf(new_key), value, &value)
-        }
-
-        converted_map[&new_key] = &value
-    }
-
-    return converted_map
+func SetTest(value bool) {
+    TEST = value
 }
 
-type MapDataTransition struct {
-    data MapDataInterim
-}
+func inject(dest_file lib.DataReader, data lib.DataReader, yaml_key string, data_key string) string {
 
-func (m *MapDataTransition) ToMapData() *MapData {
-    var converted_map = make(MapData)
-    for key := range m.data {
-        conv_key := interface{}(key)
-        converted_map[conv_key] = m.data[key]
-    }
-
-    return &converted_map
-}
-
-func NewMapDataTransition(data MapDataInterim) *MapDataTransition {
-    return &MapDataTransition{data}
-}
-
-func ToMapData(data MapDataInterim) *MapData {
-    return NewMapDataTransition(data).ToMapData()
-}
-
-type DataReader interface {
-    String() string
-    Data() []byte
-    Map() *MapData
-}
-
-type BaseData struct {
-    data []byte
-}
-
-func (b BaseData) Data() []byte {
-    return b.data
-}
-
-type JsonData struct {
-    BaseData
-}
-
-func (j JsonData) String() string {
-    return string(j.data)
-}
-
-func (j JsonData) Map() *MapData {
-    if debug {
-        log.Printf("Mapping this Json Data:\n%s\n", j.data)
-    }
-
-    var data_json = make(MapDataInterim)
-    err := json.Unmarshal(j.data, &data_json)
-    if err != nil {
-        err_msg := fmt.Sprintf("Could not read data json, error: %s", err)
-        log.Fatal(err_msg)
-    }
-
-    return NewMapDataTransition(data_json).ToMapData()
-}
-
-func NewJsonData(data []byte) *JsonData {
-    return &JsonData{BaseData{data: data}}
-}
-
-type YamlData struct {
-    BaseData
-}
-
-func (y YamlData) String() string {
-    return string(y.data)
-}
-
-func (y YamlData) Map() *MapData {
-    var data_yaml = make(MapData)
-    err := yaml.Unmarshal(y.data, &data_yaml)
-    if err != nil {
-        err_msg := fmt.Sprintf("Could not read data yaml, error: %s", err)
-        log.Fatal(err_msg)
-    }
-
-    return &data_yaml
-}
-
-func NewYamlData(data []byte) *YamlData {
-    return &YamlData{BaseData{data: data}}
-}
-
-func find(tokens []string) string {
-    fmt.Printf(".")
-
-    switch len(tokens) {
-    case 0:
-        return ""
-    case 1:
-        return tokens[0]
-    default:
-        return find(tokens[1:])
-    }
-}
-
-// Keep it really simple by using dot notation.
-// Retain everything else as it will just fail anyway.
-func GetKey(tokens []string, data interface{}) (interface{}, bool) {
-    // fmt.Printf("\n>>%v, %v\n\n", key, reflect.TypeOf(key))
-    // fmt.Printf("\n>>%v, %v\n\n", data, reflect.TypeOf(data))
-    // fmt.Printf("\n>>%v, %v\n\n", value, reflect.TypeOf(value))
-
-    var next = func(format string) (interface{}, bool) {
-        token := tokens[0]
-        if debug {
-            fmt.Printf(format, token)
-        }
-
-        switch data.(type) {
-        case map[string]interface{}:
-            value := data.(map[string]interface{})[token]
-            // data.(map[string]interface{})[token] = "crap"
-            // fmt.Printf("\n**> %v\n", data)
-            return GetKey(tokens[1:], value)
-        default:
-            new_data := data.(MapData)[token]
-            return GetKey(tokens[1:], new_data)
-        }
-    }
-
-    if len(tokens) > 1 {
-        return next("(%v).")
-    } else if len(tokens) == 1 {
-        return next("(%v)")
-    } else {
-        if debug {
-            fmt.Printf(" -> [%v]\n", data)
-        }
-        // data = "crap"
-        return data, true
-    }
-
-    return nil, false
-}
-
-func readYaml(filename string) []byte {
-    data, err := ioutil.ReadFile(filename)
-    if err != nil {
-        log.Fatalf("Could not read file %s, error: %s", filename, err)
-    }
-
-    return data
-}
-
-func writeYaml(yaml_data MapData) string {
-    modified_yaml, err := yaml.Marshal(yaml_data)
-    if err != nil {
-        log.Fatalf("error: %v", err)
-    }
-
-    yaml_string := string(modified_yaml)
-
-    if test {
-        fmt.Printf("%s\n", yaml_string)
-    }
-    return yaml_string
-}
-
-func inject(dest_file DataReader, data DataReader, yaml_key string, data_key string) string {
-
-    if debug {
-        log.Printf("Dest yaml file: %s", dest_file)
-        log.Printf("Data: %s", data)
+    if DEBUG {
+        log.Printf("Dest yaml file:\n%s", dest_file)
+        log.Printf("Data:\n%s", data)
         log.Printf("Key to replace: %s", yaml_key)
         log.Printf("Data key to use: %s", data_key)
     }
 
-    parsed_yaml := *dest_file.Map()
-    data_yaml := *data.Map()
+    parsed_yaml := *dest_file.ToMapData()
+    data_file := *data.ToMapData()
 
-    if parsed_yaml[yaml_key] != "" && data_yaml[data_key] != "" {
-        if debug {
-            log.Printf("yaml node: %s\n", parsed_yaml[yaml_key])
-            log.Printf("data node: %s\n", data_yaml[data_key])
+    // First check that the designated key exists within the dest yaml file
+    if dest_value, ok := lib.GetMapValue(yaml_key, parsed_yaml); !ok {
+        log.Fatalf("Could not find any value for dest key: (%s)", yaml_key)
+    } else {
+        if DEBUG {
+            log.Printf("Dest data value to replace: %v", dest_value)
         }
-        parsed_yaml[yaml_key] = data_yaml[data_key]
-    } else if parsed_yaml[yaml_key] == "" {
-        log.Fatalf("Could not find input key: %s", yaml_key)
-    } else if data_yaml[data_key] == "" {
-        log.Fatalf("Could not find data key: %s", data_key)
     }
 
-    return writeYaml(parsed_yaml)
+    // Check that the designated key exists within the data file
+    // This does multiple passes over the data (validation, then modifier).
+    if data_value, ok := lib.GetMapValue(data_key, data_file); !ok {
+        log.Fatalf("Could not find any value for data key: (%s)", data_key)
+    } else {
+        if DEBUG {
+            log.Printf("Data value to use in inject/replacement: %v", data_value)
+        }
+
+        run := func() {
+            // Selector to find the value to replace
+            selector := lib.NewSelector(yaml_key)
+
+            // Function to replace the value
+            modifier := func(in interface{}) interface{} {
+                return data_value
+            }
+
+            lib.MapInSelect(&selector, parsed_yaml, modifier)
+        }
+
+        // At this point we can modify the map
+        run()
+    }
+
+    // Single pass dest replacement with validation via selector
+    // Not much of a difference than above. GetMapValue adds little overhead.
+    // if data_value, ok := lib.GetMapValue(data_key, data_file); !ok {
+    //     log.Fatalf("Could not find any value for data key: (%s)", data_key)
+    // } else {
+    //     if DEBUG {
+    //         log.Printf("Data value to use in inject/replacement: %v", data_value)
+    //     }
+
+    //     run := func() {
+    //         // Selector to find the value to replace
+    //         selector := lib.NewSelector(yaml_key)
+
+    //         // Function to replace the value
+    //         modifier := func(in interface{}) interface{} {
+    //             return data_value
+    //         }
+
+    //         _, dest_value := lib.MapInSelect(&selector, parsed_yaml, modifier)
+
+    //         if !selector.MatchFound() {
+    //             log.Fatalf("Could not find any value for dest key: (%s)", yaml_key)
+    //         } else {
+    //             if DEBUG {
+    //                 log.Printf("Dest data value to replace: %v", dest_value)
+    //             }
+    //         }
+
+    //     }
+
+    //     // At this point we can modify the map
+    //     run() // if ok
+    // }
+
+    return lib.WriteYaml(parsed_yaml)
 }
 
 func main() {
@@ -332,30 +208,67 @@ func main() {
                     Name:  "into",
                     Usage: "optional data key to inject into",
                     Action: func(c *cli.Context) {
-                        var data DataReader
+                        var data lib.DataReader
 
                         if c.GlobalBool("debug") {
-                            debug = true
+                            DEBUG = true
+                            lib.SetDebug(DEBUG)
                         }
 
                         if c.GlobalBool("test") {
-                            test = true
+                            TEST = true
+                            lib.SetTest(TEST)
                         }
 
                         // If stdin presents data, accept it as JSON and
                         // ignore any yaml data file flats.
                         // Otherwise use the flags given by the user.
                         if !terminal.IsTerminal(0) {
+                            if DEBUG {
+                                log.Println("stdin detected")
+                            }
+
                             input, _ := ioutil.ReadAll(os.Stdin)
-                            data = NewJsonData(input)
+                            data = lib.NewJsonData(input)
                         } else {
-                            data = NewYamlData(readYaml(c.GlobalString("using")))
+                            if DEBUG {
+                                log.Println("No stdin, proceeding with filemode")
+                            }
+                            data = lib.NewYamlData(lib.ReadYaml(c.GlobalString("using")))
                         }
 
-                        dest_file := NewYamlData(readYaml(c.GlobalString("file")))
+                        dest_file_bytes := lib.ReadYaml(c.GlobalString("file"))
+                        dest_file := lib.NewYamlData(dest_file_bytes)
                         data_key := c.GlobalString("key")
                         yaml_key := c.Args().First()
-                        inject(dest_file, data, yaml_key, data_key)
+
+                        file_content := inject(dest_file, data, yaml_key, data_key)
+
+                        writeFile := func(file_name string, file_bytes []byte) {
+                            if file, err := os.Create(file_name); err != nil {
+                                log.Fatalf("Failed while trying to create the file: %s", file_name)
+                            } else {
+                                if _, writeError := file.Write(file_bytes); writeError != nil {
+                                    log.Fatalf("Failed while trying to write data to the file: %s", file_name)
+                                } else {
+                                    file.Close()
+                                }
+
+                                if DEBUG {
+                                    log.Printf("Created and wrote to file: %s\n", file_name)
+                                }
+                            }
+                        }
+
+                        // very explicit that this only is done when not doing
+                        // test runs
+                        if !TEST {
+                            backup_filename := lib.BackupFilenameNow(c.GlobalString("file"))
+                            // Backup original file
+                            writeFile(backup_filename, dest_file_bytes)
+                            // Write out new content
+                            writeFile(c.GlobalString("file"), []byte(file_content))
+                        }
                     },
                 },
             },
