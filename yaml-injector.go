@@ -40,7 +40,8 @@
 //       inject into "a"
 //
 //   - Stdin JSON usage:
-//     echo '{"a":1}' | go run yaml-injector.go --debug \
+//     echo '{"a":1}' | go run yaml-injector.go \
+//       --debug \
 //       --file test/input.yaml \
 //       --using test/data.yaml \
 //       --key "a" inject into "a"
@@ -85,8 +86,8 @@ func SetTest(value bool) {
 func inject(dest_file lib.DataReader, data lib.DataReader, yaml_key string, data_key string) string {
 
     if DEBUG {
-        log.Printf("Dest yaml file: %s", dest_file)
-        log.Printf("Data: %s", data)
+        log.Printf("Dest yaml file:\n%s", dest_file)
+        log.Printf("Data:\n%s", data)
         log.Printf("Key to replace: %s", yaml_key)
         log.Printf("Data key to use: %s", data_key)
     }
@@ -236,10 +237,38 @@ func main() {
                             data = lib.NewYamlData(lib.ReadYaml(c.GlobalString("using")))
                         }
 
-                        dest_file := lib.NewYamlData(lib.ReadYaml(c.GlobalString("file")))
+                        dest_file_bytes := lib.ReadYaml(c.GlobalString("file"))
+                        dest_file := lib.NewYamlData(dest_file_bytes)
                         data_key := c.GlobalString("key")
                         yaml_key := c.Args().First()
-                        inject(dest_file, data, yaml_key, data_key)
+
+                        file_content := inject(dest_file, data, yaml_key, data_key)
+
+                        writeFile := func(file_name string, file_bytes []byte) {
+                            if file, err := os.Create(file_name); err != nil {
+                                log.Fatalf("Failed while trying to create the file: %s", file_name)
+                            } else {
+                                if _, writeError := file.Write(file_bytes); writeError != nil {
+                                    log.Fatalf("Failed while trying to write data to the file: %s", file_name)
+                                } else {
+                                    file.Close()
+                                }
+
+                                if DEBUG {
+                                    log.Printf("Created and wrote to file: %s\n", file_name)
+                                }
+                            }
+                        }
+
+                        // very explicit that this only is done when not doing
+                        // test runs
+                        if !TEST {
+                            backup_filename := lib.BackupFilenameNow(c.GlobalString("file"))
+                            // Backup original file
+                            writeFile(backup_filename, dest_file_bytes)
+                            // Write out new content
+                            writeFile(c.GlobalString("file"), []byte(file_content))
+                        }
                     },
                 },
             },

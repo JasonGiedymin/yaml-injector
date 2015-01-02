@@ -5,6 +5,7 @@ import (
     "log"
     "strings"
     // "reflect"
+    "time"
 )
 
 var (
@@ -179,4 +180,17 @@ func GetValue(tokens []string, data interface{}) (interface{}, bool) {
     }
 
     return nil, false
+}
+
+// Returns a filename of the format: `filename.YYYYMMDDThhmmssNnnnn`.
+// Where `n` is nanoseconds, and `T` the date time seperator.
+func BackupFilename(date time.Time, filename string) string {
+    return fmt.Sprintf("%s.%d%02d%02dT%02d%02d%02dN%02d",
+        filename,
+        date.Year(), date.Month(), date.Day(),
+        date.Hour(), date.Minute(), date.Second(), date.Nanosecond())
+}
+
+func BackupFilenameNow(filename string) string {
+    return BackupFilename(time.Now(), filename)
 }

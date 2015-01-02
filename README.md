@@ -40,7 +40,7 @@ gpm install
 Uses a makefile. Call upon the unit-tests make task:
 
 ```bash
-make unit-tests
+make tests
 ```
 
 ### Commands
@@ -50,11 +50,20 @@ Current commands are:
 ```
 -----------------------Commands:----------------------
  help            : Test help listing 
+
+                   Helpers 
  benchmark       : Run benchmark 
- unit-tests      : Test app 
+ cleans          : Cleans test dir 
+
+                   Tests 
+ tests           : Runs all unit tests 
  test-datafile   : Test with datafile to stdout 
  test-preview    : Test preview functionality to stdout 
- test-stdin      : Test with JSON stdin to stdout 
+ test-stdin      : Stdin JSON usage with debug output 
+ test-stdin      : Run with stdin JSON usage to stdout 
+
+                   Integration Tests 
+ itest-stdin     : Integration test for stdin. 
 ------------------------------------------------------
 ```
 
@@ -79,8 +88,10 @@ Comments:
 ### 1/1/2015
 ```
             Test               Runs           Time/Op         Mem/Op          Mem/Stats
-BenchmarkMapInPlaceSelector   500000        3013 ns/op       550 B/op       16 allocs/op
 BenchmarkGetValue            5000000         532 ns/op        67 B/op        3 allocs/op
+BenchmarkMapInPlaceSelector   500000        3013 ns/op       550 B/op       16 allocs/op
+BenchmarkInject                20000      100228 ns/op     34884 B/op      300 allocs/op
+
 Comments:
   - 3013ns per operation == 0.003013 ms
 ```

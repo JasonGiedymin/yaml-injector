@@ -5,6 +5,7 @@ import (
     "reflect"
     "strings"
     "testing"
+    "time"
 )
 
 func TestMapFunc(t *testing.T) {
@@ -209,5 +210,16 @@ func TestMapInPlaceSelector(t *testing.T) {
 
     if DEBUG {
         t.Logf("----------------- In-place testing runs complete -----------")
+    }
+}
+
+func TestBackupFileName(t *testing.T) {
+    //                year       month   dd hh mm ss  ns         tz
+    date := time.Date(2015, time.January, 1, 2, 3, 4, 123456789, time.Local)
+
+    expected := "test_file.conf.20150101T020304N123456789"
+    result := BackupFilename(date.Local(), "test_file.conf")
+    if result != expected {
+        t.Errorf("Expected: [%s], Got:[%s]", expected, result)
     }
 }

@@ -58,7 +58,11 @@
   - [x] Add Debug output `lib_test.go` file when running test loop runs
   - [x] Add `inject()` benchmark
   - [x] Modify `Makefile` to remove verbose output when benchmarking
-  - [ ] Write out to destination file
+  - [x] Write out to destination file
+    - [x] Add method to create backup filename using time
+  - [x] Modify `Makefile` to reformat output and help
+  - [x] Modify `Makefile` to md5 checksum the output file as an integration test
+  - [x] Update [README](README) to reflect new [Makefile](Makefile) usage
 
 ## v0.3.0
 
