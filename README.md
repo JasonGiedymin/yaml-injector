@@ -1,6 +1,6 @@
 # Yaml Injector
 
-Yaml Injector v0.1.0 - Jason Giedymin
+Yaml Injector v0.2.0 - Jason Giedymin
 
 
 ## Installation
