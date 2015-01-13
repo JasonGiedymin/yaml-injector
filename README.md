@@ -2,6 +2,16 @@
 
 Yaml Injector v0.2.0 - Jason Giedymin
 
+## Download
+
+See [releases](https://github.com/JasonGiedymin/yaml-injector/releases) for the latest downloads.
+
+Current release is [v0.2.0](https://github.com/JasonGiedymin/yaml-injector/releases/tag/v0.2.0).
+
+Available in:
+  - [Linux x64](https://github.com/JasonGiedymin/yaml-injector/releases/download/v0.2.0/yaml-injector-0.2.0-linux64.tar.bz2)
+  - [Darwin x64](https://github.com/JasonGiedymin/yaml-injector/releases/download/v0.2.0/yaml-injector-0.2.0-darwin64.tar.bz2)
+
 
 ## Installation
 

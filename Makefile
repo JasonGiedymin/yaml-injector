@@ -5,6 +5,8 @@ OK_COLOR=\033[32;01m
 ERROR_COLOR=\033[31;01m
 WARN_COLOR=\033[33;01m
 
+VERSION=0.2.0
+
 # Go Opts
 GO_EXEC=go
 
@@ -14,9 +16,10 @@ help:
 
 	@echo "$(OK_COLOR)\n                   Helpers $(NO_COLOR)"
 	@echo "$(TEXT_COLOR) benchmark       : Run benchmark $(NO_COLOR)"
-	@echo "$(TEXT_COLOR) cleans          : Cleans test dir $(NO_COLOR)"
+	@echo "$(TEXT_COLOR) clean           : Cleans project dirs (runs all clean cmds) $(NO_COLOR)"
 	
 	@echo "$(OK_COLOR)\n                   Tests $(NO_COLOR)"
+	@echo "$(TEXT_COLOR) clean test      : Cleans test dir $(NO_COLOR)"
 	@echo "$(TEXT_COLOR) tests           : Runs all unit tests $(NO_COLOR)"
 	@echo "$(TEXT_COLOR) test-datafile   : Test with datafile to stdout $(NO_COLOR)"
 	@echo "$(TEXT_COLOR) test-preview    : Test preview functionality to stdout $(NO_COLOR)"
@@ -25,15 +28,29 @@ help:
 
 	@echo "$(OK_COLOR)\n                   Integration Tests $(NO_COLOR)"
 	@echo "$(TEXT_COLOR) itest-stdin     : Integration test for stdin. $(NO_COLOR)"
+
+	@echo "$(OK_COLOR)\n                   Builds $(NO_COLOR)"
+	@echo "$(TEXT_COLOR) build           : Build all binaries. $(NO_COLOR)"
+	@echo "$(TEXT_COLOR) build-linux64   : Build linux 64 bit binary. $(NO_COLOR)"
+	@echo "$(TEXT_COLOR) build-darwin64  : Build darwin 64 bit binary. $(NO_COLOR)"
+	@echo "$(TEXT_COLOR) clean-target    : Cleans build targets dir. $(NO_COLOR)"
 	@echo "$(OK_COLOR)------------------------------------------------------$(NO_COLOR)"
 
 all: help
 
-clean:
+clean-test:
 	@echo "$(TEXT_COLOR)==> Cleaning up files: $(NO_COLOR)"
 	@cp test/original.input.yaml test/input.yaml
-	@rm test/input.yaml.*
+	@if [ -e test/input.yaml.* ]; then\
+		rm test/input.yaml.* ;\
+	fi;
 	@echo Done.
+
+clean-target:
+	@echo "$(TEXT_COLOR)==> Cleaning up target directory: $(NO_COLOR)"
+	@rm -R target/
+
+clean: clean-test clean-target
 
 tests:
 	$(GO_EXEC) test ./... -v
@@ -100,3 +117,15 @@ _itest-stdin:
 	@echo
 
 itest-stdin: _itest-stdin clean
+
+build-linux64:
+	@echo "$(TEXT_COLOR)==> Building Linux 64bit binary... $(NO_COLOR)"
+	@GOOS=linux GOARCH=amd64 CGO_ENABLED=0 $(GO_EXEC) build -o ./target/yaml-injector-$(VERSION)-linux64
+	@tar -cvjf ./target/yaml-injector-$(VERSION)-linux64.tar.bz2 ./target/yaml-injector-$(VERSION)-linux64
+
+build-darwin64:
+	@echo "$(TEXT_COLOR)==> Building Darwin 64bit binary... $(NO_COLOR)"
+	@GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 $(GO_EXEC) build -o ./target/yaml-injector-$(VERSION)-darwin64
+	@tar -cvjf ./target/yaml-injector-$(VERSION)-darwin64.tar.bz2 ./target/yaml-injector-$(VERSION)-darwin64
+
+build: build-linux64 build-darwin64
