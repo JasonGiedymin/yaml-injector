@@ -120,4 +120,4 @@ yaml-injector is under the Apache 2.0 license. See the [LICENSE](LICENSE) file f
 
 ## Todo
 
-See [TODO](TODO) file for details.
+See [TODO](TODO.md) file for details.
