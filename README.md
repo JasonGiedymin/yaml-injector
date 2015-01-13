@@ -63,9 +63,10 @@ Current commands are:
 
                    Helpers 
  benchmark       : Run benchmark 
- cleans          : Cleans test dir 
+ clean           : Cleans project dirs (runs all clean cmds) 
 
                    Tests 
+ clean test      : Cleans test dir 
  tests           : Runs all unit tests 
  test-datafile   : Test with datafile to stdout 
  test-preview    : Test preview functionality to stdout 
@@ -74,6 +75,12 @@ Current commands are:
 
                    Integration Tests 
  itest-stdin     : Integration test for stdin. 
+
+                   Builds 
+ build           : Build all binaries. 
+ build-linux64   : Build linux 64 bit binary. 
+ build-darwin64  : Build darwin 64 bit binary. 
+ clean-target    : Cleans build targets dir. 
 ------------------------------------------------------
 ```
 
